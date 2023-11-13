@@ -1,29 +1,23 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { User } from '../users/user.entity';
-import { NotificationType } from './enums/notification.enum';
+import { ReadReceipt } from './read-receipt.entity';
 
 @Entity()
-export class Notification {
+export class DirectMessage {
   @PrimaryGeneratedColumn()
   id: number;
 
   @ManyToOne(() => User)
-  user: User;
+  sender: User;
 
-  @Column({
-    type: 'enum',
-    enum: NotificationType,
-  })
-  type: NotificationType;
-
-  @Column()
-  title: string;
+  @ManyToOne(() => User)
+  receiver: User;
 
   @Column()
   content: string;
 
-  @Column()
-  isRead: boolean;
+  @ManyToOne(() => ReadReceipt, { nullable: false })
+  readReceipt: ReadReceipt;
 
   @CreateDateColumn()
   createdAt: Date;
