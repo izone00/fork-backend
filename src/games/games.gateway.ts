@@ -12,7 +12,8 @@ import { WebsocketExceptionsFilter } from 'src/filters/websocket-exception.filet
 import { corsConfig } from '@configs/cors.config';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
 import { SocketConnectionGateway } from 'src/socket-connection/socket-connection.gateway';
-import { Game, Player } from './games';
+import { Game, GameStatus, Player } from './games';
+import { UsersService } from 'src/users/users.service';
 
 @UseFilters(new WebsocketExceptionsFilter())
 @UsePipes(new ValidationPipe())
@@ -21,34 +22,49 @@ import { Game, Player } from './games';
 })
 export class GamesGateway {
   @WebSocketServer() server: Server;
-  readonly games: Game[] = [];
+  games: Game[] = [];
   readonly players = new Map<string, Player>();
 
-  canvasWidth = 100;
-  canvasHeight = 200;
-  paddleWidth = 50;
-  paddleHeight = 10;
-
-  constructor(private socketConnectionGateway: SocketConnectionGateway) {
+  constructor(
+    private socketConnectionGateway: SocketConnectionGateway,
+    private usersService: UsersService,
+  ) {
     setInterval(() => {
       this.games.forEach((game) => {
         const socketId1 = game.player1.socketId;
         const socketId2 = game.player2.socketId;
-        game.movePaddle();
-        game.moveBall();
 
-        this.server.to(socketId1).emit('game-info', {
-          me: game.player1,
-          oppense: game.player2,
-          ball: game.ball,
-        });
+        if (game.status === GameStatus.PROGRESS) {
+          game.movePaddle();
+          game.moveBall();
 
-        const { playerReverse1, playerReverse2, ballReverse } = game.reverse();
-        this.server.to(socketId2).emit('game-info', {
-          me: playerReverse2,
-          oppense: playerReverse1,
-          ball: ballReverse,
-        });
+          this.server.to(socketId1).emit('game-info', {
+            me: game.player1,
+            oppense: game.player2,
+            ball: game.ball,
+          });
+
+          const { playerReverse1, playerReverse2, ballReverse } = game.reverse();
+          this.server.to(socketId2).emit('game-info', {
+            me: playerReverse2,
+            oppense: playerReverse1,
+            ball: ballReverse,
+          });
+        } else if (game.status === GameStatus.FINISH) {
+          this.usersService
+            .saveMatchHistory(game)
+            .then((matchHistorys) => {
+              this.server.to(socketId1).emit('game-result', matchHistorys[0]);
+              this.server.to(socketId2).emit('game-result', matchHistorys[1]);
+            })
+            .catch((e) => console.log(e));
+
+          const filteredGames = this.games.filter((g) => g !== game);
+          this.games = filteredGames;
+
+          this.players.delete(socketId1);
+          this.players.delete(socketId2);
+        }
       });
     }, 50);
   }
@@ -58,6 +74,8 @@ export class GamesGateway {
     const socketId2 = (await this.socketConnectionGateway.userToSocket(userId2)).id;
 
     const game = new Game(socketId1, socketId2);
+    game.player1.userId = userId1;
+    game.player2.userId = userId2;
     const player1 = game.player1;
     const player2 = game.player2;
 
@@ -77,10 +95,13 @@ export class GamesGateway {
       oppense: playerReverse1,
       ball: ballReverse,
     });
+
+    // 3초 후 게임 시작
+    setTimeout(() => (game.status = GameStatus.PROGRESS), 3000);
   }
 
   @SubscribeMessage('move-paddle')
-  gameBarMove(
+  gamePaddleMove(
     @ConnectedSocket() clientSocket: Socket,
     @MessageBody() event: { type: string; key: string },
   ) {
@@ -95,16 +116,11 @@ export class GamesGateway {
     }
   }
 
-  // emit end game-set
+  // pause
 
-  // emit finish game
+  // resume
 
-  // 끊기면 패배?
-  // on pause
-  // emit pause
-
-  // on resume
-  // emit resume
+  // giveup
 
   // prettier-ignore
   notiGameInvite(invitedUserId: number, invitingUser: User) {

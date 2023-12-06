@@ -1,3 +1,8 @@
+const canvasWidth = 100;
+const canvasHeight = 200;
+const paddleWidth = 30;
+const paddleHeight = 10;
+
 type Paddle = {
   x: number;
   y: number;
@@ -10,58 +15,49 @@ type Ball = {
   x: number;
   y: number;
   radius: number;
-  speed: number;
   color: 'green';
   dx: number;
   dy: number;
 };
 
-const canvasWidth = 100;
-const canvasHeight = 200;
-const paddleWidth = 30;
-const paddleHeight = 10;
+enum GameStatus {
+  READY = 'ready',
+  PROGRESS = 'progress',
+  PAUSE = 'pause',
+  FINISH = 'finish',
+}
 
 export class Game {
-  ball: Ball;
-  player1: Player;
-  player2: Player;
+  player1 = new Player('P1', {
+    x: canvasWidth / 2 - paddleWidth / 2,
+    y: canvasHeight - paddleHeight,
+    width: paddleWidth,
+    height: paddleHeight,
+    color: 'red',
+    dx: 0,
+  });
+  player2 = new Player('P2', {
+    x: canvasWidth / 2 - paddleWidth / 2,
+    y: 0,
+    width: paddleWidth,
+    height: paddleHeight,
+    color: 'blue',
+    dx: 0,
+  });
+  ball: Ball = {
+    x: canvasWidth / 2,
+    y: canvasHeight / 2,
+    radius: 8,
+    color: 'green',
+    dx: 4,
+    dy: 4,
+  };
+  status: GameStatus = GameStatus.READY;
 
   constructor(socketId1: string, socketId2: string) {
-    this.player1 = new Player(
-      {
-        x: canvasWidth / 2 - paddleWidth / 2,
-        y: canvasHeight - paddleHeight,
-        width: paddleWidth,
-        height: paddleHeight,
-        color: 'red',
-        dx: 0,
-      },
-      socketId1,
-      +1,
-    );
-    this.player2 = new Player(
-      {
-        x: canvasWidth / 2 - paddleWidth / 2,
-        y: 0,
-        width: paddleWidth,
-        height: paddleHeight,
-        color: 'blue',
-        dx: 0,
-      },
-      socketId2,
-      -1,
-    );
-    this.ball = {
-      x: canvasWidth / 2,
-      y: canvasHeight / 2,
-      radius: 8,
-      speed: 2,
-      color: 'green',
-      dx: 2,
-      dy: 2,
-    };
+    this.player1.socketId = socketId1;
+    this.player2.socketId = socketId2;
   }
-
   movePaddle() {
     const paddle1 = this.player1.paddle;
     if (paddle1.x + paddle1.dx > 0 && paddle1.x + paddle1.dx < canvasWidth - paddle1.width) {
@@ -90,10 +86,10 @@ export class Game {
       ball.x > paddle1.x &&
       ball.x < paddle1.x + paddle1.width
     ) {
-      const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
-      ball.speed += 1;
-      ball.dx = Math.cos(angle) * ball.speed;
-      ball.dy = -Math.sin(angle) * ball.speed;
+      // const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
+      // ball.dx = Math.cos(angle) * 1.2;
+      // ball.dy = -Math.sin(angle) * 1.2;
+      ball.dy = -Math.abs(ball.dy);
     }
     // 상단바와의 충돌 체크
     if (
@@ -101,20 +97,32 @@ export class Game {
       ball.x > paddle2.x &&
       ball.x < paddle2.x + paddle2.width
     ) {
-      const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
-      ball.speed += 1;
-      ball.dx = Math.cos(angle) * ball.speed;
-      ball.dy = Math.sin(angle) * ball.speed;
+      // const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
+      // ball.dx = Math.cos(angle) * 1.2;
+      // ball.dy = Math.sin(angle) * 1.2;
+      ball.dy = Math.abs(ball.dy);
     }
     // 득점체크
-    if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvasHeight) {
+    if (ball.y - ball.radius < 0) {
+      this.player2.score += 1;
       ball.x = canvasWidth / 2;
       ball.y = canvasHeight / 2;
       ball.dy = -ball.dy;
 
-      ball.speed = 2;
-      ball.dx = 2;
-      ball.dy = 2;
+      ball.dx = 4;
+      ball.dy = 4;
+    } else if (ball.y + ball.radius > canvasHeight) {
+      this.player2.score += 1;
+      ball.x = canvasWidth / 2;
+      ball.y = canvasHeight / 2;
+      ball.dy = -ball.dy;
+
+      ball.dx = 4;
+      ball.dy = 4;
+    }
+
+    if (this.player1.score === 3 || this.player2.score === 3) {
+      this.status = GameStatus.FINISH;
     }
   }
 
@@ -135,21 +143,29 @@ export class Game {
   }
 }
 
-export class Player {
+class Player {
   paddleSpeed = 4;
+  socketId: string;
+  userId: number;
+  score = 0;
   constructor(
+    private role: 'P1' | 'P2',
     public paddle: Paddle,
-    public socketId: string,
-    private leftSign: number,
   ) {}
 
   moveRight() {
-    this.paddle.dx = this.paddleSpeed * this.leftSign;
+    this.role === 'P1'
+      ? (this.paddle.dx = +this.paddleSpeed)
+      : (this.paddle.dx = -this.paddleSpeed);
   }
   moveLeft() {
-    this.paddle.dx = -this.paddleSpeed * this.leftSign;
+    this.role === 'P1'
+      ? (this.paddle.dx = -this.paddleSpeed)
+      : (this.paddle.dx = +this.paddleSpeed);
   }
   moveStop() {
     this.paddle.dx = 0;
   }
 }
+
+export { Player, GameStatus };

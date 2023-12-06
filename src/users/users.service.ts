@@ -5,6 +5,9 @@ import { FindOneOptions, Repository } from 'typeorm';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { SecureShieldService } from 'src/secure-shield/secure-shield.service';
+import { MatchHistory } from 'src/users/entities/match-history.entity';
+import { Game } from 'src/games/games';
+import { MatchResult } from 'src/users/enums/match-result.enum';
 
 @Injectable()
 export class UsersService {
@@ -12,6 +15,8 @@ export class UsersService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private secureShieldService: SecureShieldService,
+    @InjectRepository(MatchHistory)
+    private matchHistoryRepository: Repository<MatchHistory>,
   ) {}
 
   findAllUsers(): Promise<User[]> {
@@ -59,5 +64,43 @@ export class UsersService {
   async createSecretKey(user: User): Promise<void> {
     user.otpSecret = this.secureShieldService.encrypt(this.secureShieldService.generateSecretKey());
     await this.userRepository.save(user);
+  }
+
+  async saveMatchHistory(game: Game): Promise<MatchHistory[]> {
+    const user1 = await this.findById(game.player1.userId);
+    const user2 = await this.findById(game.player2.userId);
+
+    const resultByPlayer1 =
+      game.player1.score > game.player2.score ? MatchResult.WIN : MatchResult.LOSS;
+    const lpChangeByPlayer1 = Math.floor(Math.random() * 100);
+    const historyByPlayer1 = this.matchHistoryRepository.create({
+      user: user1,
+      opponent: user2,
+      result: resultByPlayer1,
+      userScore: game.player1.score,
+      opponentScore: game.player2.score,
+      lpChange: resultByPlayer1 === MatchResult.WIN ? lpChangeByPlayer1 : -lpChangeByPlayer1,
+    });
+
+    const resultByPlayer2 =
+      game.player2.score > game.player1.score ? MatchResult.WIN : MatchResult.LOSS;
+    const lpChangeByPlayer2 = Math.floor(Math.random() * 100);
+    const historyByPlayer2 = this.matchHistoryRepository.create({
+      user: user2,
+      opponent: user1,
+      result: resultByPlayer2,
+      userScore: game.player2.score,
+      opponentScore: game.player1.score,
+      lpChange: resultByPlayer2 === MatchResult.WIN ? lpChangeByPlayer2 : -lpChangeByPlayer2,
+    });
+
+    const historys = await this.matchHistoryRepository.save([historyByPlayer1, historyByPlayer2]);
+
+    user1.ladderPoint += historyByPlayer1.lpChange;
+    user2.ladderPoint += historyByPlayer2.lpChange;
+
+    await this.userRepository.save([user1, user2]);
+
+    return historys;
   }
 }

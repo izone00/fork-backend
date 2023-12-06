@@ -1,6 +1,6 @@
-import { User } from 'src/users/user.entity';
+import { User } from '../user.entity';
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import { MatchResult } from './enums/match-result.enum';
+import { MatchResult } from '../enums/match-result.enum';
 
 @Entity()
 export class MatchHistory {

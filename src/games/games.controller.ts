@@ -3,13 +3,17 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { GetUser } from 'src/auth/user.decorator';
 import { User } from 'src/users/user.entity';
 import { GamesGateway } from './games.gateway';
+import { RedisService } from 'src/commons/redis-client.service';
 
 @UseGuards(AuthGuard)
 @Controller('games')
 export class GamesController {
   private watingUserId: number | null;
 
-  constructor(private gamesGateway: GamesGateway) {}
+  constructor(
+    private gamesGateway: GamesGateway,
+    private redisService: RedisService,
+  ) {}
 
   // 매칭 방식은 추후에 변경
   @Post('queue')
@@ -58,13 +62,5 @@ export class GamesController {
     // if noting throw notFount
 
     // remove
-  }
-
-  @Post('restart')
-  restartGame() {}
-
-  @Post('quit')
-  quitGame() {
-    // game end
   }
 }
