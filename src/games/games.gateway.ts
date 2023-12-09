@@ -22,15 +22,15 @@ import { UsersService } from 'src/users/users.service';
 })
 export class GamesGateway {
   @WebSocketServer() server: Server;
-  games: Game[] = [];
-  readonly players = new Map<string, Player>();
+  readonly games = new Map<string, Game>();
+  readonly players = new Map<string, { player: Player; game: Game }>();
 
   constructor(
     private socketConnectionGateway: SocketConnectionGateway,
     private usersService: UsersService,
   ) {
     setInterval(() => {
-      this.games.forEach((game) => {
+      this.games.forEach((game, key) => {
         const socketId1 = game.player1.socketId;
         const socketId2 = game.player2.socketId;
 
@@ -59,14 +59,28 @@ export class GamesGateway {
             })
             .catch((e) => console.log(e));
 
-          const filteredGames = this.games.filter((g) => g !== game);
-          this.games = filteredGames;
-
+          this.games.delete(key);
           this.players.delete(socketId1);
           this.players.delete(socketId2);
         }
       });
     }, 50);
+  }
+
+  handleDisconnect(clientSocket: Socket): void {
+    const gamePlayer = this.players.get(clientSocket.id);
+
+    if (gamePlayer) {
+      const player = this.players.get(clientSocket.id).player;
+      const game = this.players.get(clientSocket.id).game;
+      game.status = GameStatus.FINISH;
+      const { me, oppense } =
+        player === game.player1
+          ? { me: game.player1, oppense: game.player2 }
+          : { me: game.player2, oppense: game.player1 };
+      me.score = 0;
+      oppense.score = 3;
+    }
   }
 
   async initGame(userId1: number, userId2: number) {
@@ -79,9 +93,9 @@ export class GamesGateway {
     const player1 = game.player1;
     const player2 = game.player2;
 
-    this.games.push(game);
-    this.players.set(socketId1, player1);
-    this.players.set(socketId2, player2);
+    this.games.set(game.player1.socketId, game); // key값 수정
+    this.players.set(socketId1, { player: player1, game });
+    this.players.set(socketId2, { player: player2, game });
 
     this.server.to(socketId1).emit('game-start', {
       me: game.player1,
@@ -90,6 +104,7 @@ export class GamesGateway {
     });
 
     const { playerReverse1, playerReverse2, ballReverse } = game.reverse();
+    // info: ShowUserOverviewDto 유저 정보 추가
     this.server.to(socketId2).emit('game-start', {
       me: playerReverse2,
       oppense: playerReverse1,
@@ -106,7 +121,7 @@ export class GamesGateway {
     @MessageBody() event: { type: string; key: string },
   ) {
     const socketId = clientSocket.id;
-    const player = this.players.get(socketId);
+    const player = this.players.get(socketId).player;
     if (event.type === 'keydown') {
       if (event.key === 'ArrowLeft') player.moveLeft();
       else if (event.key === 'ArrowRight') player.moveRight();
