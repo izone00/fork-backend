@@ -7,6 +7,7 @@ import { RedisService } from '../commons/redis-client.service';
 import { WebsocketExceptionsFilter } from '../filters/websocket-exception.fileter';
 import { corsConfig } from '@configs/cors.config';
 import { RedisField } from 'src/commons/enums/redis.enum';
+import { UserStatus } from 'src/users/enums/user-status.enum';
 
 export const PRIVAVE_PREFIX = 'private:';
 const SOCKET_ID_PREFIX = 'socket_id:';
@@ -65,7 +66,11 @@ export class SocketConnectionGateway {
       RedisField.USER_TO_SOCKER,
       clientSocketId,
     );
-    await this.redisService.hset(USER_ID_PREFIX + userId, RedisField.USER_STATUS, 'online');
+    await this.redisService.hset(
+      USER_ID_PREFIX + userId,
+      RedisField.USER_STATUS,
+      UserStatus.ONLINE,
+    );
   }
 
   private async removeClientRedis(clientSocketId: string, userId: string | number): Promise<void> {
@@ -97,5 +102,17 @@ export class SocketConnectionGateway {
       session = JSON.parse(await this.redisService.client.get('session:' + sessionId));
     }
     return session?.userId;
+  }
+
+  async getUserStatus(userId: number): Promise<UserStatus> {
+    const socketId = await this.userToSocket(userId);
+    if (!socketId) {
+      return UserStatus.OFFLINE;
+    }
+
+    return this.redisService.hget(
+      USER_ID_PREFIX + userId,
+      RedisField.USER_STATUS,
+    ) as Promise<UserStatus>;
   }
 }

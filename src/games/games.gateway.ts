@@ -7,7 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { User } from 'src/users/user.entity';
-import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import { NotFoundException, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
 import { WebsocketExceptionsFilter } from 'src/filters/websocket-exception.fileter';
 import { corsConfig } from '@configs/cors.config';
 import { NotificationType } from 'src/notifications/enums/notification.enum';
@@ -64,7 +64,7 @@ export class GamesGateway {
           this.players.delete(socketId2);
         }
       });
-    }, 50);
+    }, 10);
   }
 
   handleDisconnect(clientSocket: Socket): void {
@@ -86,6 +86,12 @@ export class GamesGateway {
   async initGame(userId1: number, userId2: number) {
     const socketId1 = (await this.socketConnectionGateway.userToSocket(userId1)).id;
     const socketId2 = (await this.socketConnectionGateway.userToSocket(userId2)).id;
+    const user1 = await this.usersService.findById(userId1);
+    const user2 = await this.usersService.findById(userId2);
+
+    if (!(user1 || user2)) {
+      throw new NotFoundException('user를 찾을 수 없습니다.');
+    }
 
     const game = new Game(socketId1, socketId2);
     game.player1.userId = userId1;
@@ -98,16 +104,20 @@ export class GamesGateway {
     this.players.set(socketId2, { player: player2, game });
 
     this.server.to(socketId1).emit('game-start', {
-      me: game.player1,
-      oppense: game.player2,
+      canvasWidth: 500,
+      canvasHeight: 1000,
+      barWidth: 150,
+      barHeight: 50,
+      me: { ...game.player1, info: user1 },
+      oppense: { ...game.player2, info: user2 },
       ball: game.ball,
     });
 
     const { playerReverse1, playerReverse2, ballReverse } = game.reverse();
     // info: ShowUserOverviewDto 유저 정보 추가
     this.server.to(socketId2).emit('game-start', {
-      me: playerReverse2,
-      oppense: playerReverse1,
+      me: { ...playerReverse2, info: user2 },
+      oppense: { ...playerReverse1, info: user1 },
       ball: ballReverse,
     });
 
@@ -115,7 +125,7 @@ export class GamesGateway {
     setTimeout(() => (game.status = GameStatus.PROGRESS), 3000);
   }
 
-  @SubscribeMessage('move-paddle')
+  @SubscribeMessage('move-bar')
   gamePaddleMove(
     @ConnectedSocket() clientSocket: Socket,
     @MessageBody() event: { type: string; key: string },

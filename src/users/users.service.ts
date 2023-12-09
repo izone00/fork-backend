@@ -34,6 +34,15 @@ export class UsersService {
     return this.userRepository.findOneBy({ id });
   }
 
+  findUserDetailById(id: number): Promise<User> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: {
+        matchHistorys: true,
+      },
+    });
+  }
+
   findByEmail(email: string): Promise<User> {
     const options: FindOneOptions<User> = { where: { email } };
     return this.userRepository.findOne(options);

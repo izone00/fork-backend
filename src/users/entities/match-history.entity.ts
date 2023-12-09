@@ -7,7 +7,7 @@ export class MatchHistory {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User)
+  @ManyToOne(() => User, (user) => user.matchHistorys)
   user: User;
 
   @ManyToOne(() => User)

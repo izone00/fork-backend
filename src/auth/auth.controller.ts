@@ -119,7 +119,7 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('2fa/setup')
+  @Get('2fa/setup')
   async getOtpAuthUrl(@Res() res: Response, @GetUser() user: User): Promise<void> {
     await this.authService.initialize2fa(res, user);
   }

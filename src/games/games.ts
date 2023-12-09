@@ -1,7 +1,7 @@
-const canvasWidth = 100;
-const canvasHeight = 200;
-const paddleWidth = 30;
-const paddleHeight = 10;
+const canvasWidth = 500;
+const canvasHeight = 1000;
+const paddleWidth = 150;
+const paddleHeight = 50;
 
 type Paddle = {
   x: number;
@@ -47,7 +47,7 @@ export class Game {
   ball: Ball = {
     x: canvasWidth / 2,
     y: canvasHeight / 2,
-    radius: 8,
+    radius: 20,
     color: 'green',
     dx: 4,
     dy: 4,
@@ -59,20 +59,20 @@ export class Game {
     this.player2.socketId = socketId2;
   }
   movePaddle() {
-    const paddle1 = this.player1.paddle;
-    if (paddle1.x + paddle1.dx > 0 && paddle1.x + paddle1.dx < canvasWidth - paddle1.width) {
-      paddle1.x += paddle1.dx;
+    const bar1 = this.player1.bar;
+    if (bar1.x + bar1.dx > 0 && bar1.x + bar1.dx < canvasWidth - bar1.width) {
+      bar1.x += bar1.dx;
     }
-    const paddle2 = this.player2.paddle;
-    if (paddle2.x + paddle2.dx > 0 && paddle2.x + paddle2.dx < canvasWidth - paddle2.width) {
-      paddle2.x += paddle2.dx;
+    const bar2 = this.player2.bar;
+    if (bar2.x + bar2.dx > 0 && bar2.x + bar2.dx < canvasWidth - bar2.width) {
+      bar2.x += bar2.dx;
     }
   }
 
   moveBall() {
     const ball = this.ball;
-    const paddle1 = this.player1.paddle;
-    const paddle2 = this.player2.paddle;
+    const bar1 = this.player1.bar;
+    const bar2 = this.player2.bar;
 
     ball.x += ball.dx;
     ball.y += ball.dy;
@@ -81,11 +81,7 @@ export class Game {
       ball.dx = -ball.dx;
     }
     // 하단바와의 충돌 체크
-    if (
-      ball.y + ball.radius > paddle1.y &&
-      ball.x > paddle1.x &&
-      ball.x < paddle1.x + paddle1.width
-    ) {
+    if (ball.y + ball.radius > bar1.y && ball.x > bar1.x && ball.x < bar1.x + bar1.width) {
       // const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
       // ball.dx = Math.cos(angle) * 1.2;
       // ball.dy = -Math.sin(angle) * 1.2;
@@ -93,9 +89,9 @@ export class Game {
     }
     // 상단바와의 충돌 체크
     if (
-      ball.y - ball.radius < paddle2.y + paddle2.height &&
-      ball.x > paddle2.x &&
-      ball.x < paddle2.x + paddle2.width
+      ball.y - ball.radius < bar2.y + bar2.height &&
+      ball.x > bar2.x &&
+      ball.x < bar2.x + bar2.width
     ) {
       // const angle = (Math.random() * 0.8 + 0.1) * Math.PI;
       // ball.dx = Math.cos(angle) * 1.2;
@@ -104,7 +100,7 @@ export class Game {
     }
     // 득점체크
     if (ball.y - ball.radius < 0) {
-      this.player2.score += 1;
+      this.player1.score += 1;
       ball.x = canvasWidth / 2;
       ball.y = canvasHeight / 2;
       ball.dy = -ball.dy;
@@ -128,13 +124,13 @@ export class Game {
 
   reverse() {
     const playerReverse1 = { ...this.player1 };
-    playerReverse1.paddle = { ...this.player1.paddle };
-    playerReverse1.paddle.x = canvasWidth - this.player1.paddle.width - this.player1.paddle.x;
-    playerReverse1.paddle.y = canvasHeight - this.player1.paddle.height - this.player1.paddle.y;
+    playerReverse1.bar = { ...this.player1.bar };
+    playerReverse1.bar.x = canvasWidth - this.player1.bar.width - this.player1.bar.x;
+    playerReverse1.bar.y = canvasHeight - this.player1.bar.height - this.player1.bar.y;
     const playerReverse2 = { ...this.player2 };
-    playerReverse2.paddle = { ...this.player2.paddle };
-    playerReverse2.paddle.x = canvasWidth - this.player2.paddle.width - this.player2.paddle.x;
-    playerReverse2.paddle.y = canvasHeight - this.player2.paddle.height - this.player2.paddle.y;
+    playerReverse2.bar = { ...this.player2.bar };
+    playerReverse2.bar.x = canvasWidth - this.player2.bar.width - this.player2.bar.x;
+    playerReverse2.bar.y = canvasHeight - this.player2.bar.height - this.player2.bar.y;
     const ballReverse = { ...this.ball };
     ballReverse.x = canvasWidth - this.ball.x;
     ballReverse.y = canvasHeight - this.ball.y;
@@ -150,21 +146,17 @@ class Player {
   score = 0;
   constructor(
     private role: 'P1' | 'P2',
-    public paddle: Paddle,
+    public bar: Paddle,
   ) {}
 
   moveRight() {
-    this.role === 'P1'
-      ? (this.paddle.dx = +this.paddleSpeed)
-      : (this.paddle.dx = -this.paddleSpeed);
+    this.role === 'P1' ? (this.bar.dx = +this.paddleSpeed) : (this.bar.dx = -this.paddleSpeed);
   }
   moveLeft() {
-    this.role === 'P1'
-      ? (this.paddle.dx = -this.paddleSpeed)
-      : (this.paddle.dx = +this.paddleSpeed);
+    this.role === 'P1' ? (this.bar.dx = -this.paddleSpeed) : (this.bar.dx = +this.paddleSpeed);
   }
   moveStop() {
-    this.paddle.dx = 0;
+    this.bar.dx = 0;
   }
 }
 
